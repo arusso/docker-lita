@@ -63,7 +63,7 @@ module Lita
       end
 
       def get_contacts(response)
-        response.reply("Contact listing is unavailable at this time...")
+        response.reply("Contact listing is unavailable at this time... for realz.")
         return
 
         sid = response.match_data['service_id']
