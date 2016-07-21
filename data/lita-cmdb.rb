@@ -51,7 +51,7 @@ module Lita
           if data['fields']['name'] == 'Standard OS Support'
             sla = 'standard' if sla == ''
           elsif data['fields']['name'] == 'Extended OS Support'
-            sla == 'extended' if sla == ''
+            sla = 'extended'
           end 
         end
 
