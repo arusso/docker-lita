@@ -13,5 +13,5 @@ REDIS_CONTAINER_NAME="lita-redis-${LITA_ENV}"
 APP_CONTAINER_NAME="lita-app-${LITA_ENV}"
 
 echo "Launching environment ${LITA_ENV}... Using image ${DOCKER_IMAGE}:${DOCKER_TAG}..."
-docker run -d --name "${REDIS_CONTAINER_NAME}" redis:latest
-docker run -d --name "${APP_CONTAINER_NAME}" --env-file "env/${LITA_ENV}" --link "${REDIS_CONTAINER_NAME}":redis ${DOCKER_IMAGE}:${DOCKER_TAG}
+docker run -d --restart unless-stopped --name "${REDIS_CONTAINER_NAME}" redis:latest
+docker run -d --restart unless-stopped --name "${APP_CONTAINER_NAME}" --env-file "env/${LITA_ENV}" --link "${REDIS_CONTAINER_NAME}":redis ${DOCKER_IMAGE}:${DOCKER_TAG}
