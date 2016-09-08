@@ -2,10 +2,20 @@
 
 Ensure your bot has an environment file defined for the environment you want to launch. You should at least populate the dev environment file (bots/<bot>/env/dev).
 
-Launch your bot like so:
+Launching your bot with the included scripts will ensure the bot restarts on failure, and is properly linked to a redis container as needed by lita:
 
     ./bot-launch.sh <bot> <env>
     ./bot-launch.sh oski dev
+
+You can kill your bot (and all data/logs/etc) by running:
+
+    ./bot-kill.sh <bot> <env>
+    ./bot-kill.sh oski dev
+
+If you're developing code, you often need to rebuild the docker image and relaunch your containers. You can use our helper script to do all that for you:
+
+    ./bot-rebuild-and-relaunch.sh <bot> <env>
+    ./bot-rebuild-and-relaunch.sh oski dev
 
 ## Bot - Oski
 
