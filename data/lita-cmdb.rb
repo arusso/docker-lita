@@ -5,8 +5,16 @@ module Lita
       config :itop_user
       config :itop_pass
 
+      CONTACT_TYPES = [ 'technical', 'owner', 'billing' ]
+      CONTACT_ALIASES = { 'authorized' => [ 'technical', 'owner' ], 'all' => CONTACT_TYPES }
+      CONTACT_TYPES_REGEX = /(?<contact_type>#{CONTACT_TYPES.join('|')})/
+      CONTACT_ALIASES_REGEX = /(?<contact_alias>#{CONTACT_ALIASES.keys.join('|')})/
+      CONTACT_TYPES_ALIASES_REGEX = /(?:#{[ CONTACT_TYPES_REGEX, CONTACT_ALIASES_REGEX].join('|')})/
+
+      SERVICE_ID_REGEX = /(?<service_id>[a-zA-Z0-9\-\_]+)/
+
       route(
-        /^(?:get\ )?contacts\ (?:for\ )?(?:host\ )?(?<service_id>[a-zA-Z0-9\-\_]+)(\ of)?(\ type)?(?:\ (?<contact_type>technical|owner|billing|authorized|all))?$/,
+        /^(?:get\ )?contacts\ (?:for\ )?(?:host\ )?#{SERVICE_ID_REGEX}\ ?(of\ )?(type\ )?#{CONTACT_TYPES_ALIASES_REGEX}?$/,
 	:get_contacts,
 	command: true,
 	help: {
@@ -15,14 +23,22 @@ module Lita
         },
       )
 
-      # respond to sla queries
       route(
-        /^(?:get\ )?sla\ (?:(?:for|of)\ )?(?:(?:host|service\ id)\ )?(?<service_id>[a-zA-Z0-9\-]+)$/,
+        /^(?:get\ )?sla\ (?:for\ |of\ )?(?:host\ |service\ id\ )?#{SERVICE_ID_REGEX}$/,
         :get_sla,
         command: true,
         help: {
           '[get] sla [for host] <service_id>' => "Returns SLA for service id",
           'sla <service_id>' => 'Shorthand notation for SLA lookup',
+        },
+      )
+
+      route(
+        /^add\ contacts\ (?:for\ )?(?:host\ )?(?<service_id>[a-zA-Z0-9\-\_]+)\ (?:of\ )?(?:type\ )?(?<contact_type>#{CONTACT_TYPES_REGEX})\ (?<contacts_raw>.*)$/,
+        :add_contacts,
+        command: true,
+        help: {
+          'add contacts [for host] <service_id> [of type] <contact_type> <contact> [contact ...]' => 'add one or more contacts to a service id',
         },
       )
      
@@ -70,24 +86,26 @@ module Lita
 
       def get_contacts(response)
         sid = response.match_data['service_id']
-        req_type = response.match_data['contact_type']
-        puts "#{response.user.mention_name} << get_contacts(service_id: #{sid}, contact_type: #{req_type})"
-        
-        case req_type
-        when 'billing'
-          contact_types = [ req_type ]
-        when 'technical'
-          contact_types = [ req_type ]
-        when 'owner'
-          contact_types = [ req_type ]
-        when 'authorized'
-          contact_types = [ 'owner', 'technical' ]  
-        when 'all'
-          contact_types = [ 'owner', 'technical', 'billing' ]
-        when nil
-          contact_types = [ 'owner', 'technical' ]
+        ctype = response.match_data['contact_type']
+        calias = response.match_data['contact_alias']
+        puts "#{response.user.mention_name} << get_contacts(service_id: #{sid}, contact_type: #{ctype}, contact_alias: #{calias})"
+        contact_types = []
+
+        if ctype.nil? and ( calias.nil? or calias == 'all' )
+          contact_types = CONTACT_TYPES
+        elsif calias.nil? and ! ctype.nil?
+          contact_types = [ ctype ]
+        elsif ctype.nil?
+          # handle any aliases here
+          case calias
+          when 'authorized'
+            contact_types = CONTACT_TYPES.select { |itm| itm != 'billing' } 
+          else
+            response.send("Unknown contact type alias #{calias}")
+            return
+          end
         else
-          response.reply("Sorry, I don't know how to process contact type: #{req_type}")
+          response.send("I am unable to process your request")
           return
         end
 
@@ -108,14 +126,13 @@ module Lita
           reply = "Contacts for service id *#{sid}*:\n"
           contacts.each { |id,info| reply += " • #{info['email']} (#{info['type']})\n" }
         else
-          reply = "No #{req_type} contacts found for #{sid}" 
+          reply = "No #{contact_types.join('/')} contacts found for #{sid}" 
         end
         puts "#{response.user.mention_name} >> found #{contacts.size} contacts"
         response.reply(reply)
       end
 
       private
-      # return a hash containing
       def get_contacts_for_service_id_of_type(service_id, type)
         query = [
           "SELECT Person AS p",
