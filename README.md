@@ -1,6 +1,6 @@
 ## Getting Started
 
-Ensure your bot has an environment file defined for the environment you want to launch. You should at least populate the dev environment file (bots/<bot>/env/dev).
+Ensure your bot has an environment file defined for the environment you want to launch. You should at least populate the dev environment file (`./bots/BOTNAME/env/dev`).
 
 Launching your bot with the included scripts will ensure the bot restarts on failure, and is properly linked to a redis container as needed by lita:
 
