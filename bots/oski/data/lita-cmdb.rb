@@ -71,7 +71,7 @@ module Lita
           elsif data['fields']['name'] == 'Extended OS Support'
             sla = 'extended'
           end 
-        end
+        end unless res['objects'].nil?
 
         log_msg="#{response.user.mention_name} >> sla is "
         if sla == ''
