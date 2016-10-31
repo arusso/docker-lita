@@ -45,33 +45,44 @@ module Lita
       def get_sla(response)
         service_id = response.match_data['service_id']
         puts "#{response.user.mention_name} << get_sla(service_id: #{service_id})"
-        query = [ 'SELECT SLA AS s',
-              'JOIN lnkCustomerContractToService AS l1',
-              'ON l1.sla_id=s.id',
-              'JOIN Contract AS c',
-              'ON l1.customercontract_id=c.id',
-              'JOIN lnkCustomerContractToFunctionalCI AS l2',
-              'ON l2.customercontract_id = c.id',
-              'JOIN VirtualMachine AS v',
-              'ON l2.functionalci_id=v.id',
-              "WHERE v.name REGEXP '^#{service_id}$'" ].join(' ')
-        data = {
-          'operation' => 'core/get',
-          'class' => 'SLA',
-          'key' => query,
-          'output_fields' => 'name',
-        }
-        http_res = query_itop(data)
-        
-        res = MultiJson.load(http_res.body)
+        query_vm = %{
+            SELECT SLA AS s
+            JOIN lnkCustomerContractToService AS l1      ON l1.sla_id=s.id
+            JOIN Contract AS c                           ON l1.customercontract_id=c.id
+            JOIN lnkCustomerContractToFunctionalCI AS l2 ON l2.customercontract_id = c.id
+            JOIN VirtualMachine AS v                     ON l2.functionalci_id=v.id
+            WHERE v.name REGEXP '^#{service_id}(\\\\..*)?'
+        }.gsub(/\s+/," ").strip!
+        query_phys = %{
+            SELECT SLA AS s
+            JOIN lnkCustomerContractToService AS l1      ON l1.sla_id=s.id
+            JOIN Contract AS c                           ON l1.customercontract_id=c.id
+            JOIN lnkCustomerContractToFunctionalCI AS l2 ON l2.customercontract_id = c.id
+            JOIN Server AS srv                           ON l2.functionalci_id=srv.id
+            WHERE srv.name REGEXP '^#{service_id}(\\\\..*)?'
+        }.gsub(/\s+/," ").strip!
+
         sla = ''
-        res['objects'].each do |slak,data|
-          if data['fields']['name'] == 'Standard OS Support'
-            sla = 'standard' if sla == ''
-          elsif data['fields']['name'] == 'Extended OS Support'
-            sla = 'extended'
-          end 
-        end unless res['objects'].nil?
+        [ query_vm, query_phys ].each do |query|
+          data = {
+            'operation' => 'core/get',
+            'class' => 'SLA',
+            'key' => query,
+            'output_fields' => 'name',
+          }
+          http_res = query_itop(data)
+        
+          res = MultiJson.load(http_res.body)
+          res['objects'].each do |slak,data|
+            if data['fields']['name'] == 'Standard OS Support'
+              sla = 'standard' if sla == ''
+            elsif data['fields']['name'] == 'Extended OS Support'
+              sla = 'extended'
+            end 
+          end unless res['objects'].nil?
+          # if we already found our sla at this point, we can leave
+          break unless sla == ''
+        end
 
         log_msg="#{response.user.mention_name} >> sla is "
         if sla == ''
